@@ -6,6 +6,8 @@ module Ally
     class Date
       include Ally::Detector
       require 'chronic'
+      require 'time'
+      require 'date'
 
       attr_accessor :date
 
@@ -40,19 +42,23 @@ module Ally
       ]
 
       def detect
-        words = @inquiry.words_chomp_punc.map(&:downcase).select do |w|
-          DAYS_OF_THE_MONTH.include?(w) ||
-          DAYS_OF_THE_WEEK.include?(w) ||
-          MONTHS.include?(w) ||
-          MONTHS_ABBR.include?(w) ||
-          RELATIVE_DATES.include?(w) ||
-          DATE_RELAVANT_WORDS.include?(w) ||
-          w =~ /^[0-9]+(:|\/|-)[0-9]+(:|\/|-)[0-9]+$/ || # various date formats
-          w =~ /^([0-9]+(:|-)|)[0-9]+(:|-)[0-9]+$/ # various time formats
+        words = @inquiry.words_chomp_punc.select do |w|
+          DAYS_OF_THE_MONTH.include?(w.downcase) ||
+          DAYS_OF_THE_WEEK.include?(w.downcase) ||
+          MONTHS.include?(w.downcase) ||
+          MONTHS_ABBR.include?(w.downcase) ||
+          RELATIVE_DATES.include?(w.downcase) ||
+          DATE_RELAVANT_WORDS.include?(w.downcase) ||
+          w =~ /^([\+-]?\d{4}(?!\d{2}\b))((-?)((0[1-9]|1[0-2])(\3([12]\d|0[1-9]|3[01]))?|W([0-4]\d|5[0-2])(-?[1-7])?|(00[1-9]|0[1-9]\d|[12]\d{2}|3([0-5]\d|6[1-6])))([T\s]((([01]\d|2[0-3])((:?)[0-5]\d)?|24\:?00)([\.,]\d+(?!:))?)?(\17[0-5]\d([\.,]\d+)?)?([zZ]|([\+-])([01]\d|2[0-3]):?([0-5]\d)?)?)?)?$/  # various date formats
         end
         date_string = words.join(' ')
         date = Chronic.parse(date_string)
-        date = date.to_date unless date.nil?
+        if date.nil?
+          # find unix epoch timestamp
+          @inquiry.type_of('numbers').each do |num|
+            date = Time.at(num).utc if num.to_s =~ /^\d{10}$/
+          end
+        end
         date
       end
     end
